@@ -21,6 +21,8 @@ Set-PlacesSettings -AllowInConnectionslist 'Default:true'
 Set-PlacesSettings -EnableBuildings 'Default:true'
 Set-PlacesSettings -EnablePlacesWebApp 'Default:true'
 Set-PlacesSettings -PlacesFinderEnabled 'Default:true'
+Set-PlacesSettings -SpaceAnalyticsEnabled 'Default:true'
+
 
 #Approach 1: Intialize Microsoft Places
 Initialize-Places
