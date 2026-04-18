@@ -102,11 +102,43 @@ Supports importing **Indoor Mapping Data Format (IMDF)** maps:
 | `Import-MapCorrelations` | Import IMDF indoor map data |
 | `New-Map` | Attach a map to a building |
 
+## Export Unparented Items Script
+
+`Export-MSPlaces-UnparentedItems.ps1` finds all **unparented** Rooms, Desks, and Spaces in your Microsoft Places environment and exports them into separate CSV files so you can assign them to the correct Building → Floor → Section hierarchy.
+
+### What It Does
+
+1. Connects to **Exchange Online** and **Microsoft Places**
+2. Exports 3 reference CSVs (Buildings, Floors, Sections) for easy lookup
+3. Finds all unparented Rooms, Desks, and Spaces from PlacesV3
+4. Finds desk-named Room/Equipment mailboxes from Exchange that aren't parented
+5. Exports separate CSVs per type with fill-in instructions in the column headers
+
+### Output Files
+
+| File | Description |
+|---|---|
+| `Ref_Buildings.csv` | Reference: all buildings |
+| `Ref_Floors.csv` | Reference: all floors with building names |
+| `Ref_Sections.csv` | Reference: all sections with floor and building names |
+| `Unparented_Rooms.csv` | Rooms to parent (fill in Building & Floor from reference files) |
+| `Unparented_Desks.csv` | Desks to parent (fill in Building, Floor & optionally Section) |
+| `Unparented_Spaces.csv` | Spaces/Desk Pools to parent |
+
+### Usage
+
+```powershell
+.\Export-MSPlaces-UnparentedItems.ps1
+```
+
+The script will prompt you for an output folder, connect to services, and export all unparented items with instructions on how to fill in the parent hierarchy.
+
 ## File Structure
 
 ```
-MS-Places-Cmdlets.ps1   # Main PowerShell walkthrough script
-README.md               # This file
+MS-Places-Cmdlets.ps1               # Main PowerShell walkthrough script
+Export-MSPlaces-UnparentedItems.ps1  # Export unparented Places items to CSV
+README.md                            # This file
 ```
 
 ## Resources
