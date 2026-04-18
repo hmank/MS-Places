@@ -133,11 +133,35 @@ Supports importing **Indoor Mapping Data Format (IMDF)** maps:
 
 The script will prompt you for an output folder, connect to services, and export all unparented items with instructions on how to fill in the parent hierarchy.
 
+## Import Unparented Items Script
+
+`Import-MSPlaces-UnparentedItems.ps1` reads the edited CSV files from the Export script and **parents** each Room, Desk, or Space to the correct Building → Floor → Section in Microsoft Places.
+
+### What It Does
+
+1. Prompts for the folder containing your edited `Unparented_*.csv` files
+2. Shows available files with a count of rows ready to import vs. not yet filled in
+3. Loads the live Buildings, Floors, and Sections from Microsoft Places
+4. Resolves the Building/Floor/Section **names** you typed in the CSV to PlaceId GUIDs
+5. Parents each item using `Set-PlaceV3 -ParentId`
+6. Optionally runs a verification check to show remaining unparented items
+
+### Usage
+
+```powershell
+.\Import-MSPlaces-UnparentedItems.ps1
+```
+
+The script will prompt you to pick which file(s) to import and can process all files at once or one at a time.
+
+> **Tip:** Building and Floor are required. Section is optional — if left blank, items are parented directly to the Floor.
+
 ## File Structure
 
 ```
 MS-Places-Cmdlets.ps1               # Main PowerShell walkthrough script
 Export-MSPlaces-UnparentedItems.ps1  # Export unparented Places items to CSV
+Import-MSPlaces-UnparentedItems.ps1  # Import edited CSVs to parent items in Places
 README.md                            # This file
 ```
 
