@@ -76,12 +76,24 @@ Set-PlaceV3 -Identity "ConfRm-NY-12.238" -Capacity 4 -Label "ConfRm NY/12.238" -
 $contosohq = (Get-PlaceV3 -Type Building | Where-Object -Property DisplayName -eq 'Contoso HQ').PlaceId
 Get-Placev3 -AncestorId $contosohq | Export-Csv -Path "C:\Temp\ContosoHQExport.csv"
 
-#Export information and objects for NYC
-$contosony = (Get-PlaceV3 -Type Building | Where-Object -Property DisplayName -eq 'Contoso NY').PlaceId
-Get-Placev3 -AncestorId $contosonyc | Export-Csv -Path "c:\Temp\ContosoNYExport.csv"
 
 #Building your Indoor Mapping Data Format IMDF Map to create the mapfeatures.csv file
 Import-MapCorrelations -MapFilePath "C:\Temp\Contoso HQ.zip"
+
+#Once you have the mappedfeatures.csv open and save as mappedfeatures.xlsx and then open ContosoHQExport.csv file and copy the contents to a new tab in the mappedfeatures.xlsx called "contoso hq export"
+#Starting in cell A5,B5,C5 we can use an xloopup command to fill in columns A , B  C
+
+#Column A5, uses F5 as a lookup value, and searches all of Column B in ContosoHQExport tab, returns a value from Column A, and must return an exact value
+#Xlookup =XLOOKUP(F6,'C:\Temp\[ContosoHQExport.csv]ContosoHQExport'!$B$1:$B$98,'C:\Temp\[ContosoHQExport.csv]ContosoHQExport'!$A$1:$A$98,1,0)
+
+
+#Column B5, uses F5 as a lookup value, and searches all of Column B in ContosoHQExport tab, returns a value from Column B, and must return an exact value
+#Xlookup =XLOOKUP(F6,'C:\Temp\[ContosoHQExport.csv]ContosoHQExport'!$B$1:$B$98,'C:\Temp\[ContosoHQExport.csv]ContosoHQExport'!$B$1:$B$98,1,0)
+
+#Column C5, uses F5 as a lookup value, and searches all of Column B in ContosoHQExport tab, returns a value from Column C, and must return an exact value
+#Xlookup =XLOOKUP(F6,'C:\Temp\[ContosoHQExport.csv]ContosoHQExport'!$B$1:$B$98,'C:\Temp\[ContosoHQExport.csv]ContosoHQExport'!$C$1:$C$98,1,0)
+
+#Once the lookup is complete, save has mappedfeatures.csv
 
 #Create the correlation file by using xlookup to populate the PlaceID, Name, Type, Feature Type from the ContosoNYExport.csv file
 
