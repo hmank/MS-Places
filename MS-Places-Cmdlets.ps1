@@ -1,23 +1,24 @@
-#Step 1: Install powershell 7 and exchange online powershell module
+#Step 1: Install PowerShell 7.4 or later and required PowerShell modules
 
 winget install --id Microsoft.PowerShell --source winget 
-Install-Module -Name ExchangeOnlineManagement
+Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser
+Install-Module -Name MicrosoftTeams -Scope CurrentUser
+Install-Module -Name MicrosoftPlaces -Force
 
 
-#Step 2: Create an Exchange Online security group in MS graph and then Exchange Online PowerShell and create a new management role
+#Step 2: Assign Places management permissions
+# Assign the built-in Places Administrator role in the Microsoft 365 admin center,
+# or assign TenantPlacesManagement directly. The account also needs MailRecipient
+# permissions to manage mailbox objects; see the linked Microsoft guidance.
 Connect-ExchangeOnline
-New-DistributionGroup -Type Security -Name "MS Places Management" -Alias msplacesmanagement -RequireSenderAuthenticationEnabled $true 
-
-
-New-ManagementRoleAssignment –Role 'TenantPlacesManagement' –SecurityGroup 'MS Places Management'
-New-ManagementRoleAssignment –Role 'Mail Recipient Creation' –SecurityGroup 'MS Places Management'
-New-ManagementRoleAssignment –Role 'Mail Recipients' –SecurityGroup 'MS Places Management'
+New-ManagementRoleAssignment -Role 'TenantPlacesManagement' -User '<admin@contoso.com>'
 
 #Step 3: Install or update Microsoft Places powershell module
 
-Install-Module MicrosoftPlaces –Force -AllowClobber
+Install-Module -Name MicrosoftPlaces -Force
 Connect-MicrosoftPlaces
-Set-PlacesSettings -AllowInConnectionslist 'Default:true'
+# These settings are tenant-wide examples. Review the current cmdlet documentation
+# for supported parameters, scoping, licensing, and propagation delays.
 Set-PlacesSettings -EnableBuildings 'Default:true'
 Set-PlacesSettings -EnablePlacesWebApp 'Default:true'
 Set-PlacesSettings -PlacesFinderEnabled 'Default:true'
@@ -30,18 +31,7 @@ Initialize-Places
 #Option 2 - Import mapping to automatically create 
 #Option 3 - Export ps scripts with cmdlets to create places
 
-#Approach 2: Create a new buildings , floors, desks manually
-#Create a workspace
-New-Mailbox -Room -Alias "wksp-ny-2.260" -Name "Workspace NY/11.260" | Set-Mailbox -Type Workspace
-Set-MailboxCalendarConfiguration -Identity "wksp-ny-2.260" -WorkingHoursTimeZone "Pacific Standard Time" -WorkingHoursStartTime 09:00:00
-Set-CalendarProcessing -Identity "wksp-ny-2.260" -EnforceCapacity $True -AllowConflicts $true
-
-#create a room
-New-Mailbox -Room -Alias "ConfRm-NY-11.260" -Name "ConfRm NY/11.260"
-Set-CalendarProcessing -Identity "ConfRm-NY-11.260" -AutomateProcessing AutoAccept -AddOrganizerToSubject $false -AllowRecurringMeetings $true -DeleteAttachments $true -DeleteComments $false -DeleteSubject $false -ProcessExternalMeetingMessages $true -RemovePrivateProperty $false -AddAdditionalResponse $true -AdditionalResponse "This is a Microsoft Teams Meeting room!"
-#Set Auto Release Default is 10 mins
-Set-CalendarProcessing -Identity "ConfRm-NY-11.260" -EnableAutoRelease $true 
-
+#Approach 2: Create buildings, floors, sections, rooms, workspaces, and desks
 #Create a building for Contoso in New York
 New-Place -Type Building -Name "Contoso NY" -Street "11 Times Square" -City "New York" -State "New" -PostalCode "10036" -CountryorRegion "United States"
 $contosonyc = (Get-PlaceV3 -Type Building | Where-Object -Property DisplayName -eq 'Contoso NY').PlaceId
@@ -55,21 +45,25 @@ $contosol11 = (Get-PlaceV3 -AncestorId $contosonyc | Where-Object -Property Disp
 New-Place -Type Floor -Name "12" -SortOrder 1 -ParentId $contosonyc
 $contosol12 = (Get-PlaceV3 -AncestorId $contosonyc | Where-Object -Property DisplayName -eq '12').PlaceId
 
+#Create a room on an existing floor. New-Place provisions the room and mailbox.
+$room = New-Place -Type Room -Name "ConfRm NY/11.260" -ParentId $contosol11 -Capacity 4 -Mailbox "ConfRm-NY-11.260@contoso.com"
+Set-CalendarProcessing -Identity "ConfRm-NY-11.260@contoso.com" -AutomateProcessing AutoAccept -AddOrganizerToSubject $false -AllowRecurringMeetings $true -DeleteAttachments $true -DeleteComments $false -DeleteSubject $false -ProcessExternalMeetingMessages $true -RemovePrivateProperty $false -AddAdditionalResponse $true -AdditionalResponse "This is a Microsoft Teams Meeting room!"
+#Auto-release requires an eligible space license for the room.
+Set-CalendarProcessing -Identity "ConfRm-NY-11.260@contoso.com" -EnableAutoRelease $true
+
 #Create Floor sections for Contoso NYC
-$sectionSW1 = (New-Place -type Section -Name "NY.11.SouthWest" -ParentId $contosol1).PlaceId
+$sectionSW1 = (New-Place -type Section -Name "NY.11.SouthWest" -ParentId $contosol11).PlaceId
 
-#Create individual Desk/Office for Contoso NYC
-$desk1 = New-Place -type Desk -Name "Office NY/11.190" -ParentId $sectionSW1 
+#Create a workspace (desk pool) and an individual desk under the section.
+#Workspaces and desks must be parented to a section.
+$workspace = New-Place -Type Workspace -Name "Workspace NY/11.160" -Capacity 17 -ParentId $sectionSW1 -Mailbox "wksp-ny-11.160@contoso.com"
+Set-PlaceV3 -Identity "wksp-ny-11.160@contoso.com" -IsWheelChairAccessible $true -Tags "Monitor", "Docking Station"
 
-#Create a mailbox for the desk and assign Tags
-$mbx1 = New-Mailbox -Room -Alias "office-ny-11.190" -Name "Office NY/11.190"
-Set-Mailbox $mbx1.Identity -Type Desk -HiddenFromAddressListsEnabled $true
-Set-PlaceV3 $desk1.PlaceId -Mailbox $mbx1.Identity -IsWheelChairAccessible $true -Tags "Office", "Monitor", "Docking Station", "Height Adjustable Desk"
+#Reservable mode enables individual desk booking; a desk mailbox is provisioned automatically.
+$desk1 = New-Place -Type Desk -Name "Office NY/11.190" -ParentId $sectionSW1 -Mode @{Name = 'Reservable'}
+Set-PlaceV3 -Identity $desk1.PlaceId -IsWheelChairAccessible $true -Tags "Office", "Monitor", "Docking Station", "Height Adjustable Desk"
 
-#Create a workspace for Contoso NYC
-Set-PlaceV3 -Identity "wksp-NY-11.160" -Capacity 17 -Label "Workspace NY/11.160" -FloorLabel "11" -IsWheelChairAccessible $True -Tags "Monitor", "Docking Station" -ParentId $sectionSW1
-
-#Create a conference room for Contoso NYC
+#Update an existing conference room for Contoso NYC.
 Set-PlaceV3 -Identity "ConfRm-NY-12.238" -Capacity 4 -Label "ConfRm NY/12.238" -FloorLabel "12" -IsWheelChairAccessible $True -Tags "IntelliFrame Camera" -MTREnabled $true -ParentId $contosol12
 
 #Export information and objects for Contoso HQ

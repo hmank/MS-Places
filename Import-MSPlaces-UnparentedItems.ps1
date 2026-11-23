@@ -12,14 +12,38 @@
     5. Parents each item using Set-PlaceV3
     6. Verifies remaining unparented items after import
 
-    Building and Floor are REQUIRED. Section is OPTIONAL.
-    - If Section is provided: item is parented to the Section
-    - If Section is blank: item is parented to the Floor
+    Building and Floor are REQUIRED. Section is required for desks and
+    workspaces (desk pools), and optional for rooms.
+    - Desks and workspaces are parented to a Section.
+    - Rooms are parented to a Section when provided, otherwise to a Floor.
 
 .NOTES
-    Run in PowerShell 7+
+    Run in PowerShell 7.4 or later.
     Edit the CSV files from the Export script before running this.
 #>
+
+function Test-RowReadyForImport {
+    param(
+        [Parameter(Mandatory)]
+        [psobject]$Row,
+
+        [Parameter(Mandatory)]
+        [bool]$RequireSection
+    )
+
+    $building = [string]$Row.Building
+    $floor = [string]$Row.Floor
+    $section = [string]$Row.Section
+    $hasBuilding = -not [string]::IsNullOrWhiteSpace($building) -and
+        $building.Trim() -notlike "REQUIRED*"
+    $hasFloor = -not [string]::IsNullOrWhiteSpace($floor) -and
+        $floor.Trim() -notlike "REQUIRED*"
+    $hasSection = -not [string]::IsNullOrWhiteSpace($section) -and
+        $section.Trim() -notlike "REQUIRED*" -and
+        $section.Trim() -notlike "OPTIONAL*"
+
+    return $hasBuilding -and $hasFloor -and (-not $RequireSection -or $hasSection)
+}
 
 # ============================================================
 # ASK FOR FILE LOCATION
@@ -57,13 +81,12 @@ Write-Host "Available files:" -ForegroundColor White
 Write-Host ""
 for ($i = 0; $i -lt $availableFiles.Count; $i++) {
     $fileRows = @(Import-Csv -Path $availableFiles[$i].FullName)
+    $requireSection = $availableFiles[$i].Name -ne "Unparented_Rooms.csv"
     $filledRows = @($fileRows | Where-Object {
-            $_.Building -and $_.Building -notlike "REQUIRED*" -and
-            $_.Floor -and $_.Floor -notlike "REQUIRED*"
+            Test-RowReadyForImport -Row $_ -RequireSection $requireSection
         })
     $notFilledRows = @($fileRows | Where-Object {
-            -not $_.Building -or $_.Building -like "REQUIRED*" -or
-            -not $_.Floor -or $_.Floor -like "REQUIRED*"
+            -not (Test-RowReadyForImport -Row $_ -RequireSection $requireSection)
         })
 
     Write-Host "  [$($i + 1)] $($availableFiles[$i].Name)" -ForegroundColor White
@@ -160,18 +183,17 @@ foreach ($file in $filesToImport) {
 
     $rows = @(Import-Csv -Path $file.FullName)
 
-    # Building and Floor must be filled in (not empty, not instruction text)
+    $requireSection = $file.Name -ne "Unparented_Rooms.csv"
+
     $rowsToImport = @($rows | Where-Object {
-            $_.Building -and $_.Building -notlike "REQUIRED*" -and
-            $_.Floor -and $_.Floor -notlike "REQUIRED*"
+            Test-RowReadyForImport -Row $_ -RequireSection $requireSection
         })
     $rowsSkipped = @($rows | Where-Object {
-            -not $_.Building -or $_.Building -like "REQUIRED*" -or
-            -not $_.Floor -or $_.Floor -like "REQUIRED*"
+            -not (Test-RowReadyForImport -Row $_ -RequireSection $requireSection)
         })
 
     if ($rowsSkipped.Count -gt 0) {
-        Write-Host "Skipping $($rowsSkipped.Count) rows without Building/Floor filled in" -ForegroundColor Gray
+        Write-Host "Skipping $($rowsSkipped.Count) rows missing Building, Floor, or required Section values" -ForegroundColor Gray
         $totalSkipped += $rowsSkipped.Count
     }
 
@@ -186,7 +208,12 @@ foreach ($file in $filesToImport) {
         $displayName = $r.DisplayName
         $buildingName = $r.Building.Trim()
         $floorName = $r.Floor.Trim()
-        $sectionName = if ($r.Section -and $r.Section -notlike "OPTIONAL*") { $r.Section.Trim() } else { "" }
+        $sectionName = if ($r.Section -and $r.Section -notlike "OPTIONAL*" -and $r.Section -notlike "REQUIRED*") {
+            $r.Section.Trim()
+        }
+        else {
+            ""
+        }
 
         # --- Resolve Building ---
         $building = $refBuildings | Where-Object { $_.DisplayName -eq $buildingName }
@@ -206,7 +233,7 @@ foreach ($file in $filesToImport) {
             continue
         }
 
-        # --- Resolve Section (optional, must be under this floor) ---
+        # --- Resolve Section (required for desks/workspaces; optional for rooms) ---
         $parentId = $floor.PlaceId
         $parentType = "Floor"
 
@@ -223,8 +250,8 @@ foreach ($file in $filesToImport) {
             $parentType = "Section"
         }
 
-        # --- Determine identity (email for real rooms, PlaceId for desks/spaces) ---
-        if ($r.Type -eq "Room" -and $r.Identity -and $r.DisplayName -notlike "desk-*") {
+        # --- Mailbox-backed rooms/workspaces use their email identity; desks use PlaceId ---
+        if ($r.Type -in @("Room", "Space") -and $r.Identity -and $r.DisplayName -notlike "desk-*") {
             $identityToUse = $r.Identity
         }
         else {

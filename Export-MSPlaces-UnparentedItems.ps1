@@ -13,15 +13,15 @@
     6. Exports separate CSVs per type, each with instructions in the column headers
 
 .NOTES
-    Run in PowerShell 7+
+    Run in PowerShell 7.4 or later.
 
 .OUTPUTS
     Ref_Buildings.csv       - Reference: all buildings
     Ref_Floors.csv          - Reference: all floors with building names
     Ref_Sections.csv        - Reference: all sections with floor and building names
-    Unparented_Rooms.csv    - Rooms to parent (fill in ParentId from Ref_Floors.csv > FloorPlaceId)
-    Unparented_Desks.csv    - Desks to parent (fill in ParentId from Ref_Sections.csv > SectionPlaceId)
-    Unparented_Spaces.csv   - Spaces/Desk Pools to parent (fill in ParentId from Ref_Sections.csv > SectionPlaceId)
+    Unparented_Rooms.csv    - Rooms to parent; Section is optional.
+    Unparented_Desks.csv    - Individual desks to parent to a Section.
+    Unparented_Spaces.csv   - Workspaces/desk pools to parent to a Section.
 #>
 
 # ============================================================
@@ -333,7 +333,7 @@ $desksExport = foreach ($d in $allDeskItems) {
         Type        = $d.Type
         Building    = "REQUIRED -> Open Ref_Buildings.csv -> Type the BuildingName"
         Floor       = "REQUIRED -> Open Ref_Floors.csv -> Type the FloorName"
-        Section     = "OPTIONAL -> Open Ref_Sections.csv -> Type the SectionName"
+        Section     = "REQUIRED -> Open Ref_Sections.csv -> Type the SectionName"
     }
 }
 
@@ -357,7 +357,7 @@ $spacesExport = foreach ($s in $unparentedSpaces) {
         Type        = "Space"
         Building    = "REQUIRED -> Open Ref_Buildings.csv -> Type the BuildingName"
         Floor       = "REQUIRED -> Open Ref_Floors.csv -> Type the FloorName"
-        Section     = "OPTIONAL -> Open Ref_Sections.csv -> Type the SectionName"
+        Section     = "REQUIRED -> Open Ref_Sections.csv -> Type the SectionName"
     }
 }
 
@@ -394,22 +394,23 @@ Write-Host "  Floor (REQUIRED)" -ForegroundColor White
 Write-Host "    Open Ref_Floors.csv and type the floor name" -ForegroundColor Gray
 Write-Host "    Example: 1" -ForegroundColor Gray
 Write-Host ""
-Write-Host "  Section (OPTIONAL)" -ForegroundColor White
+Write-Host "  Section (REQUIRED for desks and workspaces; OPTIONAL for rooms)" -ForegroundColor White
 Write-Host "    Open Ref_Sections.csv and type the section name" -ForegroundColor Gray
 Write-Host "    Example: NorthEast" -ForegroundColor Gray
-Write-Host "    If you don't need a section, delete the text and leave it blank" -ForegroundColor Gray
+Write-Host "    Desks and workspaces must be assigned to a section." -ForegroundColor Gray
+Write-Host "    For rooms only, delete the text and leave it blank to parent to the floor." -ForegroundColor Gray
 Write-Host ""
 Write-Host "  The import script will look up the names you type and" -ForegroundColor White
 Write-Host "  find the correct GUIDs automatically." -ForegroundColor White
 Write-Host ""
-Write-Host "  IMPORTANT: Names must match EXACTLY as they appear" -ForegroundColor Yellow
-Write-Host "  in the reference files (case-sensitive)." -ForegroundColor Yellow
+Write-Host "  IMPORTANT: Names must match exactly as they appear" -ForegroundColor Yellow
+Write-Host "  in the reference files." -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  Example filled-in row:" -ForegroundColor Gray
 Write-Host "    DisplayName=Conf Room Hood | Building=Contoso HQ 1 | Floor=1 | Section=" -ForegroundColor Gray
 Write-Host "    DisplayName=desk-chicago.71.100 | Building=Contoso Chicago | Floor=71 | Section=NorthEast" -ForegroundColor Gray
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
-Write-Host " After editing, run Import-UnparentedPlaces.ps1" -ForegroundColor Cyan
+Write-Host " After editing, run Import-MSPlaces-UnparentedItems.ps1" -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
