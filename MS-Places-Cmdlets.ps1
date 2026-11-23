@@ -71,7 +71,7 @@ $contosohq = (Get-PlaceV3 -Type Building | Where-Object -Property DisplayName -e
 Get-Placev3 -AncestorId $contosohq | Export-Csv -Path "C:\Temp\ContosoHQExport.csv"
 
 
-#Building your Indoor Mapping Data Format IMDF Map to create the mapfeatures.csv file
+#Building your Indoor Mapping Data Format IMDF Map to create the mapfeatures.csv file that you will use to map the Places Configuration to the IMDF Map  in the next step below to create a Correlation file
 Import-MapCorrelations -MapFilePath "C:\Temp\Contoso HQ.zip"
 
 #Once you have the mappedfeatures.csv open and save as mappedfeatures.xlsx and then open ContosoHQExport.csv file and copy the contents to a new tab in the mappedfeatures.xlsx called "contoso hq export"
